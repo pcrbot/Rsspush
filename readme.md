@@ -6,10 +6,10 @@
 
 目前支持绝大多数的RSS源
 
-### 安装方法s
+### 安装方法
 
 - 1.在modules目录下执行 `git clone https://github.com/pcrbot/Rsspush.git`
-- 2.在`__bot__.py`的`module`中添加`rsspush`
+- 2.在`__bot__.py`的`module`中添加`Rsspush`
 - 3.(可选)修改`data.py`中的`BASE_URL`为你的Rsshub地址
 - 4.开启`rss`服务
 
