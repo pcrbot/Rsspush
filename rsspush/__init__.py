@@ -1,12 +1,52 @@
 import asyncio
+import os
+from PIL import Image, ImageDraw, ImageFont
+from typing import List, Tuple
 from nonebot.argparse import ArgumentParser
 from nonebot import CommandSession
 from hoshino import Service
+from hoshino.util import pic2b64
 from .aiohttpx import head
 from .data import Rss, Rssdata, BASE_URL
 sv = Service('rss', enable_on_default=False)
 
+fontpath1 = os.path.join(os.path.dirname(__file__),'simsun.ttc')
+fontpath2 = os.path.join(os.path.dirname(__file__),'simhei.ttf')
 
+
+def getsize(text: str, fontsize: int) -> Tuple[int]:
+    lines = text.split('\n')
+    width = max([len(line) for line in lines])
+    return width*fontsize, len(lines)*(fontsize+3)+4
+
+
+def sumsize(a, b, c, d) -> Tuple[int]:
+    return max(a, c), b+d
+
+
+def info2pic(info: dict) -> str:
+    title = f"标题: {info['标题']}"
+    text = f"正文:\n{info['正文']}\n时间: {info['时间']}" 
+    textsize = getsize(text, 18)
+    titlesize = getsize(title, 22)
+    base = Image.new('RGB', sumsize(*textsize, *titlesize), (255, 255, 255))
+    draw = ImageDraw.Draw(base)
+    font1 = ImageFont.truetype(fontpath1, 18)
+    font2 = ImageFont.truetype(fontpath2, 22)
+    draw.text((0, 0), title, font=font2, fill=(0,0,0))
+    draw.text((0, titlesize[1]), text, font=font1, fill=(0,0,0))
+    return pic2b64(base)
+def infos2pic(infos:List[dict])->str:
+    texts=[]
+    for info in infos:
+       text= f"标题: {info['标题']}\n时间: {info['时间']}\n======"
+       texts.append(text)
+    texts='\n'.join(texts)
+    base = Image.new('RGB', getsize(texts,20), (255, 255, 255))
+    draw = ImageDraw.Draw(base)
+    font1 = ImageFont.truetype(fontpath1, 20)
+    draw.text((0, 0), texts, font=font1, fill=(0,0,0))
+    return pic2b64(base)
 @sv.on_command('添加订阅', aliases=('addrss', '增加订阅'), shell_like=True)
 async def addrss(session: CommandSession):
     parser = ArgumentParser(session=session)
@@ -53,7 +93,7 @@ async def delrss(session: CommandSession):
     session.finish(f'删除订阅{name}成功')
 
 
-@sv.scheduled_job('cron', minute='*/6', jitter=20)
+@sv.scheduled_job('interval', minutes=3, jitter=20)
 async def push_rss():
     bot = sv.bot
     glist = await sv.get_enable_groups()
@@ -69,8 +109,8 @@ async def push_rss():
                     await asyncio.sleep(0.5)
                     newinfo = await rss.get_new_entry_info()
                     msg = [f'订阅 {r.name} 更新啦！']
-                    for k, v in newinfo.items():
-                        msg.append(f'{k}: {v}')
+                    msg.append(f'[CQ:image,file={info2pic(newinfo)}]')
+                    msg.append(f'链接: {newinfo["链接"]}')
                     Rssdata.update(date=lstdate).where(
                         Rssdata.group == gid, Rssdata.name == r.name, Rssdata.url == r.url).execute()
                     await bot.send_group_msg(message='\n'.join(msg), group_id=gid)
@@ -86,7 +126,7 @@ async def lookrsslist(session: CommandSession):
                                                               session.event.group_id)
         msg = ['本群订阅如下:']
         for r in res:
-            msg.append(f'订阅标题:{r.name}  订阅路由:{r.url}')
+            msg.append(f'订阅标题:{r.name}\n订阅链接:{await Rss(r.url).link}\n=====')
     except Exception as e:
         sv.logger.exception(e)
         sv.logger.error(type(e))
@@ -107,14 +147,12 @@ async def lookrss(session: CommandSession):
                                                 session.event.group_id)
         r = res[0]
         rss = Rss(r.url, limit)
-        infolist = await rss.get_all_entry_info()
+        infos = await rss.get_all_entry_info()
     except Exception as e:
         sv.logger.exception(e)
         sv.logger.error(type(e))
         session.finish(f'查订阅{name}失败')
     msg = [f'{name}的最近记录:']
-    for info in infolist:
-        for k, v in info.items():
-            msg.append(f'{k}: {v}')
-        msg.append('==========')
+    msg.append(f'[CQ:image,file={infos2pic(infos)}]')
+    msg.append('详情可看: '+await rss.link)
     session.finish('\n'.join(msg))
