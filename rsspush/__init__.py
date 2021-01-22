@@ -10,43 +10,60 @@ from .aiohttpx import head
 from .data import Rss, Rssdata, BASE_URL
 sv = Service('rss', enable_on_default=False)
 
-fontpath1 = os.path.join(os.path.dirname(__file__),'simsun.ttc')
-fontpath2 = os.path.join(os.path.dirname(__file__),'simhei.ttf')
+fontpath = os.path.join(os.path.dirname(__file__), 'simhei.ttf')
+font = ImageFont.truetype(fontpath, 20)
 
 
-def getsize(text: str, fontsize: int) -> Tuple[int]:
-    lines = text.split('\n')
-    width = max([len(line) for line in lines])
-    return width*fontsize, len(lines)*(fontsize+3)+4
+# https://github.com/AkiraXie/HoshinoBot/blob/91fd4af00b31b21cc102b5a07b27ff7df12abb99/hoshino/util.py#L65
+def get_text_size(text: str, font: ImageFont.ImageFont, padding: Tuple[int, int, int, int] = (20, 20, 20, 20), spacing: int = 5) -> tuple:
+    '''
+    返回文本转图片的图片大小
+
+    *`text`：用来转图的文本
+    *`font`：一个`ImageFont`实例
+    *`padding`：一个四元`int`元组，分别是左、右、上、下的留白大小
+    *`spacing`: 文本行间距
+    '''
+    with Image.new('RGBA', (1, 1), (255, 255, 255, 255)) as base:
+        dr = ImageDraw.ImageDraw(base)
+    ret = dr.textsize(text, font=font, spacing=spacing)
+    return ret[0]+padding[0]+padding[1], ret[1]+padding[2]+padding[3]
 
 
-def sumsize(a, b, c, d) -> Tuple[int]:
-    return max(a, c), b+d
+# https://github.com/AkiraXie/HoshinoBot/blob/91fd4af00b31b21cc102b5a07b27ff7df12abb99/hoshino/util.py#L80
+def text2pic(text: str, font: ImageFont.ImageFont, padding: Tuple[int, int, int, int] = (20, 20, 20, 20), spacing: int = 5) -> Image.Image:
+    '''
+    返回一个文本转化后的`Image`实例
+
+    *`text`：用来转图的文本
+    *`font`：一个`ImageFont`实例
+    *`padding`：一个四元`int`元组，分别是左、右、上、下的留白大小
+    *`spacing`: 文本行间距
+    '''
+    size = get_text_size(text, font, padding, spacing)
+    base = Image.new('RGBA', size, (255, 255, 255, 255))
+    dr = ImageDraw.ImageDraw(base)
+    dr.text((padding[0], padding[2]), text, font=font,
+            fill='#000000', spacing=spacing)
+    return base
 
 
 def info2pic(info: dict) -> str:
-    title = f"标题: {info['标题']}"
-    text = f"正文:\n{info['正文']}\n时间: {info['时间']}" 
-    textsize = getsize(text, 18)
-    titlesize = getsize(title, 22)
-    base = Image.new('RGB', sumsize(*textsize, *titlesize), (255, 255, 255))
-    draw = ImageDraw.Draw(base)
-    font1 = ImageFont.truetype(fontpath1, 18)
-    font2 = ImageFont.truetype(fontpath2, 22)
-    draw.text((0, 0), title, font=font2, fill=(0,0,0))
-    draw.text((0, titlesize[1]), text, font=font1, fill=(0,0,0))
+    text = f"标题: {info['标题']}\n\n正文:\n{info['正文']}\n时间: {info['时间']}"
+    base = text2pic(text, font)
     return pic2b64(base)
-def infos2pic(infos:List[dict])->str:
-    texts=[]
+
+
+def infos2pic(infos: List[dict]) -> str:
+    texts = []
     for info in infos:
-       text= f"标题: {info['标题']}\n时间: {info['时间']}\n======"
-       texts.append(text)
-    texts='\n'.join(texts)
-    base = Image.new('RGB', getsize(texts,20), (255, 255, 255))
-    draw = ImageDraw.Draw(base)
-    font1 = ImageFont.truetype(fontpath1, 20)
-    draw.text((0, 0), texts, font=font1, fill=(0,0,0))
+        text = f"标题: {info['标题']}\n时间: {info['时间']}\n======"
+        texts.append(text)
+    texts = '\n'.join(texts)
+    base = text2pic(texts, font)
     return pic2b64(base)
+
+
 @sv.on_command('添加订阅', aliases=('addrss', '增加订阅'), shell_like=True)
 async def addrss(session: CommandSession):
     parser = ArgumentParser(session=session)

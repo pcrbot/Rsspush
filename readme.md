@@ -2,7 +2,11 @@
 
 ##### 更新
 
-现在支持以图片的形式推送订阅
+1.22 更新文字转图片的方法，使之更容易受控
+
+> 引用自[本人HoshinoBot](https://github.com/AkiraXie/HoshinoBot/blob/master/hoshino/util.py )
+
+1.19 现在支持以图片的形式推送订阅
 
 ### 简介
 
