@@ -1,5 +1,6 @@
 import asyncio
 import os
+from random import choice
 from PIL import Image, ImageDraw, ImageFont
 from typing import List, Tuple
 from nonebot.argparse import ArgumentParser
@@ -114,7 +115,7 @@ async def delrss(session: CommandSession):
 async def push_rss():
     bot = sv.bot
     glist = await sv.get_enable_groups()
-    for gid in glist.keys():
+    for gid, selfids in glist.items():
         res = Rssdata.select(Rssdata.url, Rssdata.name,
                              Rssdata.date).where(Rssdata.group == gid)
         for r in res:
@@ -130,7 +131,7 @@ async def push_rss():
                     msg.append(f'链接: {newinfo["链接"]}')
                     Rssdata.update(date=lstdate).where(
                         Rssdata.group == gid, Rssdata.name == r.name, Rssdata.url == r.url).execute()
-                    await bot.send_group_msg(message='\n'.join(msg), group_id=gid)
+                    await bot.send_group_msg(message='\n'.join(msg), group_id=gid, self_id=choice(selfids))
                 except Exception as e:
                     sv.logger.exception(e)
                     sv.logger.error(f'{type(e)} occured when pushing rss')
